@@ -301,6 +301,7 @@ def enviar_email_codigo(destinatario: str, codigo: str):
         return True, "Código enviado correctamente a tu buzón."
     except Exception as e:
         err_msg = str(e)
+        print(f"[ERROR SMTP] {type(e).__name__}: {err_msg}")
         return False, f"Error del servidor de correo: {err_msg}"
 
 
@@ -1725,16 +1726,16 @@ def render_sidebar():
             st.markdown("### 🔐 Verificar Correo")
             st.caption(f"Hemos enviado un código a: **{pendiente['email']}**")
             
-            # Si no hay servidor SMTP, solo mostramos el código en pantalla si MODO_DESARROLLO está explícitamente activado
+            # Si el modo desarrollo está activo, mostramos el código para facilitar pruebas inmediatas
+            if MODO_DESARROLLO:
+                st.info(f"🧪 **[Modo Pruebas]** Código de verificación: **{pendiente.get('codigo')}**\n\n*(Visible para pruebas porque MODO_DESARROLLO está en 'true' en Secrets).*")
+
             if not pendiente.get("enviado_smtp"):
-                if MODO_DESARROLLO:
-                    st.info(f"🧪 **[Modo Pruebas / Sin SMTP]**:\nTu código de verificación es: **{pendiente.get('codigo')}**\n*(En producción este código se envía por correo vía TLS).*")
+                det = pendiente.get("detalle_smtp", "")
+                if det == "SMTP_NO_CONFIGURADO":
+                    st.error("⚠️ El servidor de correo no está configurado. Por seguridad fiscal, en producción se requiere SMTP activo para verificar cuentas. Contacta con soporte.")
                 else:
-                    det = pendiente.get("detalle_smtp", "")
-                    if det == "SMTP_NO_CONFIGURADO":
-                        st.error("⚠️ El servidor de correo no está configurado. Por seguridad fiscal, en producción se requiere SMTP activo para verificar cuentas. Contacta con soporte.")
-                    else:
-                        st.error(f"⚠️ {det}")
+                    st.error(f"⚠️ {det}")
             else:
                 st.success("📧 Código enviado a tu buzón. Revisa también tu carpeta de spam.")
 
@@ -1905,6 +1906,37 @@ def render_sidebar():
 # ==============================================================================
 # FLUJO PRINCIPAL DE LA APLICACIÓN
 # ==============================================================================
+
+# Control de Privacidad / Modo Mantenimiento
+MODO_MANTENIMIENTO = obtener_secreto("MODO_MANTENIMIENTO", "false").lower() in ("true", "1", "yes")
+CLAVE_MANTENIMIENTO = obtener_secreto("CLAVE_MANTENIMIENTO", "admin2026")
+
+if MODO_MANTENIMIENTO and not st.session_state.get("acceso_mantenimiento_autorizado"):
+    inyectar_estilos()
+    st.markdown("""
+        <div style="text-align: center; padding: 40px 20px 20px 20px; max-width: 650px; margin: 0 auto;">
+            <div style="font-size: 54px; margin-bottom: 12px;">🔒</div>
+            <h1 style="font-size: 26px; font-weight: 800; color: var(--text-color); margin-bottom: 10px;">Plataforma en Mantenimiento Privado</h1>
+            <p style="font-size: 15px; color: #64748b; line-height: 1.6;">
+                Estamos ultimando los detalles técnicos y de seguridad antes del lanzamiento oficial de <b>Facturae B2B</b>.
+                La plataforma volverá a estar accesible públicamente en breve.
+            </p>
+        </div>
+    """, unsafe_allow_html=True)
+    
+    col_c1, col_c2, col_c3 = st.columns([1, 2, 1])
+    with col_c2:
+        with st.form("form_clave_privada"):
+            st.caption("Acceso privado para el desarrollador / administrador:")
+            clave_ingresada = st.text_input("Clave de Acceso Privada", type="password", placeholder="Introduce tu clave privada")
+            btn_entrar = st.form_submit_button("Desbloquear y Entrar", use_container_width=True, type="primary")
+            if btn_entrar:
+                if clave_ingresada and clave_ingresada.strip() == CLAVE_MANTENIMIENTO.strip():
+                    st.session_state.acceso_mantenimiento_autorizado = True
+                    st.rerun()
+                else:
+                    st.error("❌ Clave de acceso incorrecta.")
+    st.stop()
 
 inyectar_estilos()
 render_sidebar()
