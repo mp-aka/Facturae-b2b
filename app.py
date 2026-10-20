@@ -19,8 +19,19 @@ import ssl
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
-from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
-from openpyxl.worksheet.datavalidation import DataValidation
+try:
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    from openpyxl.worksheet.datavalidation import DataValidation
+except ImportError:
+    import subprocess
+    import sys
+    try:
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "openpyxl>=3.1.2", "stripe>=11.0.0"])
+        from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+        from openpyxl.worksheet.datavalidation import DataValidation
+    except Exception:
+        pass
+
 
 try:
     import stripe
@@ -226,6 +237,7 @@ def enviar_email_codigo(destinatario: str, codigo: str):
     smtp_user = obtener_secreto("SMTP_USER")
     smtp_pass = obtener_secreto("SMTP_PASSWORD")
     sender_name = obtener_secreto("SMTP_SENDER_NAME", "Facturae B2B Seguridad")
+    sender_email = obtener_secreto("SMTP_SENDER_EMAIL", smtp_user)
 
     if not (smtp_server and smtp_user and smtp_pass):
         return False, "SMTP_NO_CONFIGURADO"
@@ -233,7 +245,7 @@ def enviar_email_codigo(destinatario: str, codigo: str):
     try:
         msg = MIMEMultipart("alternative")
         msg["Subject"] = f"🔐 Tu código de verificación Facturae B2B: {codigo}"
-        msg["From"] = f"{sender_name} <{smtp_user}>"
+        msg["From"] = f"{sender_name} <{sender_email}>"
         msg["To"] = destinatario
 
         html_body = f"""
@@ -279,16 +291,17 @@ def enviar_email_codigo(destinatario: str, codigo: str):
         if smtp_port == 465:
             with smtplib.SMTP_SSL(smtp_server, smtp_port, context=context, timeout=12) as server:
                 server.login(smtp_user, smtp_pass)
-                server.sendmail(smtp_user, destinatario, msg.as_string())
+                server.sendmail(sender_email, destinatario, msg.as_string())
         else:
             with smtplib.SMTP(smtp_server, smtp_port, timeout=12) as server:
                 server.starttls(context=context)
                 server.login(smtp_user, smtp_pass)
-                server.sendmail(smtp_user, destinatario, msg.as_string())
+                server.sendmail(sender_email, destinatario, msg.as_string())
         
         return True, "Código enviado correctamente a tu buzón."
-    except Exception:
-        return False, "No se pudo conectar con el servidor de correo. Por favor, revisa los datos o inténtalo más tarde."
+    except Exception as e:
+        err_msg = str(e)
+        return False, f"Error del servidor de correo: {err_msg}"
 
 
 def generar_y_enviar_codigo_verificacion(email: str):
@@ -1716,7 +1729,11 @@ def render_sidebar():
                 if MODO_DESARROLLO:
                     st.info(f"🧪 **[Modo Pruebas / Sin SMTP]**:\nTu código de verificación es: **{pendiente.get('codigo')}**\n*(En producción este código se envía por correo vía TLS).*")
                 else:
-                    st.error("⚠️ El servidor de correo no está configurado. Por seguridad fiscal, en producción se requiere SMTP activo para verificar cuentas. Contacta con soporte.")
+                    det = pendiente.get("detalle_smtp", "")
+                    if det == "SMTP_NO_CONFIGURADO":
+                        st.error("⚠️ El servidor de correo no está configurado. Por seguridad fiscal, en producción se requiere SMTP activo para verificar cuentas. Contacta con soporte.")
+                    else:
+                        st.error(f"⚠️ {det}")
             else:
                 st.success("📧 Código enviado a tu buzón. Revisa también tu carpeta de spam.")
 
