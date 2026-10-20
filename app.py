@@ -1911,31 +1911,28 @@ def render_sidebar():
 MODO_MANTENIMIENTO = obtener_secreto("MODO_MANTENIMIENTO", "false").lower() in ("true", "1", "yes")
 CLAVE_MANTENIMIENTO = obtener_secreto("CLAVE_MANTENIMIENTO", "admin2026")
 
+# Desbloqueo silencioso para el desarrollador mediante parámetro secreto en la URL (?admin=clave)
+param_admin = st.query_params.get("admin")
+if param_admin and param_admin.strip() == CLAVE_MANTENIMIENTO.strip():
+    st.session_state.acceso_mantenimiento_autorizado = True
+    st.query_params.clear()
+
 if MODO_MANTENIMIENTO and not st.session_state.get("acceso_mantenimiento_autorizado"):
     inyectar_estilos()
     st.markdown("""
-        <div style="text-align: center; padding: 40px 20px 20px 20px; max-width: 650px; margin: 0 auto;">
-            <div style="font-size: 54px; margin-bottom: 12px;">🔒</div>
-            <h1 style="font-size: 26px; font-weight: 800; color: var(--text-color); margin-bottom: 10px;">Plataforma en Mantenimiento Privado</h1>
-            <p style="font-size: 15px; color: #64748b; line-height: 1.6;">
-                Estamos ultimando los detalles técnicos y de seguridad antes del lanzamiento oficial de <b>Facturae B2B</b>.
-                La plataforma volverá a estar accesible públicamente en breve.
+        <div style="max-width: 620px; margin: 4rem auto; text-align: center; padding: 3rem 2rem; background: var(--secondary-background-color); border-radius: 20px; border: 1px solid rgba(128,128,128,0.18); box-shadow: 0 12px 35px rgba(0,0,0,0.06);">
+            <div style="display: inline-block; background: rgba(37,99,235,0.12); color: #2563eb; padding: 6px 14px; border-radius: 999px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 20px;">
+                🚀 Próximo Lanzamiento Oficial
+            </div>
+            <h1 style="font-size: 32px; font-weight: 800; color: var(--text-color); margin-bottom: 12px;">Facturae B2B</h1>
+            <p style="font-size: 15px; color: #64748b; line-height: 1.7; margin-bottom: 24px;">
+                Estamos ultimando los últimos detalles técnicos del conversor inteligente de Excel a Facturae XML 3.2.2 con procesamiento seguro en memoria volátil.
             </p>
+            <div style="padding: 12px 18px; background: rgba(34,197,94,0.1); border-radius: 10px; color: #166534; font-size: 13px; font-weight: 600; display: inline-flex; align-items: center; gap: 8px;">
+                <span>🛡️</span> Plataforma segura en fase de pre-lanzamiento. Apertura pública inminente.
+            </div>
         </div>
     """, unsafe_allow_html=True)
-    
-    col_c1, col_c2, col_c3 = st.columns([1, 2, 1])
-    with col_c2:
-        with st.form("form_clave_privada"):
-            st.caption("Acceso privado para el desarrollador / administrador:")
-            clave_ingresada = st.text_input("Clave de Acceso Privada", type="password", placeholder="Introduce tu clave privada")
-            btn_entrar = st.form_submit_button("Desbloquear y Entrar", use_container_width=True, type="primary")
-            if btn_entrar:
-                if clave_ingresada and clave_ingresada.strip() == CLAVE_MANTENIMIENTO.strip():
-                    st.session_state.acceso_mantenimiento_autorizado = True
-                    st.rerun()
-                else:
-                    st.error("❌ Clave de acceso incorrecta.")
     st.stop()
 
 inyectar_estilos()
