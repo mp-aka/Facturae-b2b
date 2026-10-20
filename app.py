@@ -1457,7 +1457,10 @@ def inyectar_estilos():
             z-index: 99 !important;
         }
 
-        /* Botón de la flecha para colapsar/expandir el menú lateral: posición clara, visible y sin cortes */
+        #MainMenu { visibility: hidden; }
+        footer { visibility: hidden; height: 0; }
+
+        /* Botón de la flecha para colapsar/expandir el menú lateral */
         [data-testid="collapsedControl"] {
             top: 0.85rem !important;
             left: 0.85rem !important;
@@ -1472,8 +1475,6 @@ def inyectar_estilos():
             box-shadow: 0 2px 6px rgba(0,0,0,0.06) !important;
             transition: all 0.2s ease !important;
         }
-
-        footer { visibility: hidden; height: 0; }
 
         /* Estilo elegante para las pestañas con compatibilidad cross-browser */
         div[data-testid="stTabs"] [data-baseweb="tab-list"] {
@@ -1744,11 +1745,13 @@ def render_sidebar():
                     max_chars=6,
                     help="Introduce el código numérico recibido por email."
                 )
-                col_b1, col_b2 = st.columns(2)
-                with col_b1:
-                    btn_confirmar_otp = st.form_submit_button("Verificar", use_container_width=True, type="primary")
-                with col_b2:
-                    btn_reenviar_otp = st.form_submit_button("Reenviar", use_container_width=True)
+                btn_confirmar_otp = st.form_submit_button("Verificar Código", use_container_width=True, type="primary")
+
+            col_r1, col_r2 = st.columns(2)
+            with col_r1:
+                btn_reenviar_otp = st.button("🔄 Reenviar Código", use_container_width=True)
+            with col_r2:
+                btn_cambiar_email = st.button("⬅️ Cambiar Correo", use_container_width=True)
 
             if btn_confirmar_otp:
                 if not codigo_otp.strip():
@@ -1764,14 +1767,18 @@ def render_sidebar():
                         st.error(msg_otp)
 
             if btn_reenviar_otp:
-                cod, ok_m, det_m = generar_y_enviar_codigo_verificacion(pendiente["email"])
-                st.session_state.pendiente_verificacion["codigo"] = cod
-                st.session_state.pendiente_verificacion["enviado_smtp"] = ok_m
-                st.session_state.pendiente_verificacion["detalle_smtp"] = det_m
-                st.success("Nuevo código enviado.")
-                st.rerun()
+                with st.spinner("⏳ Enviando nuevo código de verificación por correo..."):
+                    cod, ok_m, det_m = generar_y_enviar_codigo_verificacion(pendiente["email"])
+                    st.session_state.pendiente_verificacion["codigo"] = cod
+                    st.session_state.pendiente_verificacion["enviado_smtp"] = ok_m
+                    st.session_state.pendiente_verificacion["detalle_smtp"] = det_m
+                if ok_m:
+                    st.toast("✅ ¡Nuevo código enviado a tu buzón!", icon="📨")
+                    st.success("✅ ¡Código reenviado con éxito! Revisa tu bandeja de entrada o spam.")
+                else:
+                    st.error(f"❌ Error al enviar el correo: {det_m}")
 
-            if st.button("⬅️ Cambiar de Correo", use_container_width=True):
+            if btn_cambiar_email:
                 st.session_state.pendiente_verificacion = None
                 st.rerun()
 
